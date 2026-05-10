@@ -23,20 +23,24 @@ export async function logConversation(
   const text = formatConversation(conversationId, messages);
 
   if (process.env.BLOB_READ_WRITE_TOKEN) {
+    const path = `conversations/${conversationId}.txt`;
+    console.log(`[log] writing blob ${path} (${text.length} chars)`);
     try {
-      await put(`conversations/${conversationId}.txt`, text, {
+      const result = await put(path, text, {
         // Private store; "private" requires @vercel/blob >= 1.x.
-        // (Beta — typed as `string` in some SDK versions.)
         access: "private" as "public",
         contentType: "text/plain; charset=utf-8",
         addRandomSuffix: false,
         allowOverwrite: true,
       });
+      console.log(`[log] blob OK: ${result.url}`);
       return;
     } catch (e) {
-      console.error("[log] Vercel Blob write failed", e);
+      console.error(`[log] blob write FAILED for ${path}:`, e);
       // fall through to local fallback if available
     }
+  } else {
+    console.warn("[log] BLOB_READ_WRITE_TOKEN missing — skipping prod log");
   }
 
   if (process.env.NODE_ENV !== "production") {

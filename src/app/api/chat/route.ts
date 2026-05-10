@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { after, NextRequest } from "next/server";
+import { NextRequest } from "next/server";
 import { checkOnTopic } from "@/lib/guardrail";
 import { logConversation, type LogTurn } from "@/lib/log";
 import { SYSTEM_PROMPT, REFUSAL_MESSAGE_FR } from "@/lib/prompts";
@@ -27,12 +27,12 @@ export async function POST(req: NextRequest) {
   const guard = await checkOnTopic(lastUser);
   if (!guard.onTopic) {
     if (conversationId) {
-      after(() =>
-        logConversation(conversationId, [
-          ...messagesToLog(messages),
-          { role: "assistant", content: REFUSAL_MESSAGE_FR },
-        ]),
-      );
+      // Await directly: streamRefusal will be called after this returns,
+      // and a few hundred ms of extra latency is fine for a refusal path.
+      await logConversation(conversationId, [
+        ...messagesToLog(messages),
+        { role: "assistant", content: REFUSAL_MESSAGE_FR },
+      ]);
     }
     return streamRefusal(REFUSAL_MESSAGE_FR);
   }
@@ -107,23 +107,26 @@ export async function POST(req: NextRequest) {
       } finally {
         controller.close();
         if (conversationId && assistantText) {
-          const finalAssistant = assistantText;
-          const finalSources = sources.map((s) => ({
-            corpus: s.corpus,
-            livre: s.livre,
-            chapitre: s.chapitre,
-            page: s.page,
-          }));
-          after(() =>
-            logConversation(conversationId, [
+          // Run inline (not via after()) so we get a deterministic execution
+          // and visible logs. This adds ~200-800 ms to the function lifetime
+          // but the client has already received the "done" event.
+          try {
+            await logConversation(conversationId, [
               ...messagesToLog(messages),
               {
                 role: "assistant",
-                content: finalAssistant,
-                sources: finalSources,
+                content: assistantText,
+                sources: sources.map((s) => ({
+                  corpus: s.corpus,
+                  livre: s.livre,
+                  chapitre: s.chapitre,
+                  page: s.page,
+                })),
               },
-            ]),
-          );
+            ]);
+          } catch (e) {
+            console.error("[log] inline logConversation crashed:", e);
+          }
         }
       }
     },
