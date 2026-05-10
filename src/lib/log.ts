@@ -25,7 +25,9 @@ export async function logConversation(
   if (process.env.BLOB_READ_WRITE_TOKEN) {
     try {
       await put(`conversations/${conversationId}.txt`, text, {
-        access: "public",
+        // Private store; "private" requires @vercel/blob >= 1.x.
+        // (Beta — typed as `string` in some SDK versions.)
+        access: "private" as "public",
         contentType: "text/plain; charset=utf-8",
         addRandomSuffix: false,
         allowOverwrite: true,
