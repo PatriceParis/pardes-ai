@@ -46,7 +46,7 @@ export default function ChartePage() {
               <li>L'agent <strong>n'est pas un rabbin</strong>, ni une autorité religieuse, ni un guide spirituel.</li>
               <li>Ses réponses peuvent être <strong>incomplètes ou contenir des erreurs</strong> : elles ne doivent pas servir de base à des décisions religieuses, juridiques ou personnelles importantes.</li>
               <li>
-                Pour toute question pratique de loi juive (<em>Halakha</em>) ou de situation personnelle, l'utilisateur doit consulter <strong>un rabbin ou une autorité compétente</strong>.
+                Pour toute <strong>décision personnelle qui engage</strong> la vie de l'utilisateur (mariage, conversion, divorce religieux, deuil, fin de vie, choix bioéthiques, ou cas halakhique complexe propre à sa situation), il revient à <strong>un rabbin ou une autorité compétente</strong> de trancher. L'agent peut expliquer les principes généraux, mais n'émet pas de <em>psaq</em> (décision halakhique personnelle).
               </li>
             </ul>
           </section>
