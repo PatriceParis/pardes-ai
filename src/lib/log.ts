@@ -1,6 +1,4 @@
-import { put } from "@vercel/blob";
-import { promises as fs } from "node:fs";
-import path from "node:path";
+import { Redis } from "@upstash/redis";
 
 export type LogSource = {
   corpus: string;
@@ -15,48 +13,49 @@ export type LogTurn = {
   sources?: LogSource[];
 };
 
+let cached: Redis | null = null;
+function getRedis(): Redis | null {
+  if (cached) return cached;
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) return null;
+  cached = new Redis({ url, token });
+  return cached;
+}
+
+const KEY_INDEX = "conversations:index";
+const KEY_PREFIX = "conversations:";
+
 export async function logConversation(
   conversationId: string,
   messages: LogTurn[],
 ): Promise<void> {
   if (!conversationId || !messages.length) return;
-  const text = formatConversation(conversationId, messages);
-
-  if (process.env.BLOB_READ_WRITE_TOKEN) {
-    // Public Vercel Blob store. URLs include an unguessable per-store token
-    // in the hostname, so blobs are not enumerable from the outside —
-    // effectively private for our use case (only the project owner browses
-    // them via the Vercel dashboard).
-    const path = `conversations/${conversationId}.txt`;
-    try {
-      const result = await put(path, text, {
-        access: "public",
-        contentType: "text/plain; charset=utf-8",
-        addRandomSuffix: false,
-        allowOverwrite: true,
-      });
-      console.log(`[log] put OK: ${result.url}`);
-      return;
-    } catch (e) {
-      const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
-      console.error(`[log] put FAILED ${path} | ${msg}`);
-    }
-  } else {
-    console.warn("[log] BLOB_READ_WRITE_TOKEN missing");
+  const redis = getRedis();
+  if (!redis) {
+    console.warn("[log] UPSTASH_REDIS_REST_URL/TOKEN missing");
+    return;
   }
 
-  if (process.env.NODE_ENV !== "production") {
-    try {
-      const dir = path.join(process.cwd(), "logs", "conversations");
-      await fs.mkdir(dir, { recursive: true });
-      await fs.writeFile(path.join(dir, `${conversationId}.txt`), text, "utf8");
-    } catch (e) {
-      console.error("[log] local write failed", e);
-    }
+  const text = formatConversation(conversationId, messages);
+  const key = `${KEY_PREFIX}${conversationId}`;
+
+  try {
+    await Promise.all([
+      redis.set(key, text),
+      redis.zadd(KEY_INDEX, {
+        score: Date.now(),
+        member: conversationId,
+      }),
+    ]);
+    console.log(`[log] redis OK ${key} (${text.length} chars)`);
+  } catch (e) {
+    const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+    console.error(`[log] redis FAILED ${key} | ${msg}`);
   }
 }
 
-function formatConversation(id: string, messages: LogTurn[]): string {
+export function formatConversation(id: string, messages: LogTurn[]): string {
   const lines: string[] = [];
   lines.push(`Conversation: ${id}`);
   lines.push(`Updated: ${new Date().toISOString()}`);
@@ -88,4 +87,19 @@ function formatConversation(id: string, messages: LogTurn[]): string {
     lines.push("");
   }
   return lines.join("\n");
+}
+
+export async function listConversationIds(limit = 100): Promise<string[]> {
+  const redis = getRedis();
+  if (!redis) return [];
+  const ids = await redis.zrange<string[]>(KEY_INDEX, 0, limit - 1, {
+    rev: true,
+  });
+  return ids;
+}
+
+export async function getConversation(id: string): Promise<string | null> {
+  const redis = getRedis();
+  if (!redis) return null;
+  return redis.get<string>(`${KEY_PREFIX}${id}`);
 }
