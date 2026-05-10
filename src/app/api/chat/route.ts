@@ -109,14 +109,13 @@ export async function POST(req: NextRequest) {
           ),
         );
       } finally {
-        controller.close();
         console.log(
-          `[chat] finally: conversationId=${JSON.stringify(conversationId)} assistantText=${assistantText.length}chars`,
+          `[chat] finally entered: conversationId=${JSON.stringify(conversationId)} assistantText=${assistantText.length}chars`,
         );
+        // Write log BEFORE closing the stream so the lambda stays alive.
+        // The "done" event has already been emitted; the client just waits
+        // for the connection to close (~200-800 ms extra latency, invisible).
         if (conversationId && assistantText) {
-          // Run inline (not via after()) so we get a deterministic execution
-          // and visible logs. This adds ~200-800 ms to the function lifetime
-          // but the client has already received the "done" event.
           try {
             await logConversation(conversationId, [
               ...messagesToLog(messages),
@@ -135,6 +134,7 @@ export async function POST(req: NextRequest) {
             console.error("[log] inline logConversation crashed:", e);
           }
         }
+        controller.close();
       }
     },
   });
