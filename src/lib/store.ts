@@ -19,6 +19,7 @@ export type ChatMessage = {
 };
 
 type State = {
+  conversationId: string;
   messages: ChatMessage[];
   isStreaming: boolean;
 };
@@ -32,9 +33,17 @@ type Actions = {
   reset: () => void;
 };
 
+function newConversationId(): string {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export const useChatStore = create<State & Actions>()(
   persist(
     (set) => ({
+      conversationId: newConversationId(),
       messages: [],
       isStreaming: false,
 
@@ -80,11 +89,19 @@ export const useChatStore = create<State & Actions>()(
           ),
         })),
 
-      reset: () => set({ messages: [], isStreaming: false }),
+      reset: () =>
+        set({
+          conversationId: newConversationId(),
+          messages: [],
+          isStreaming: false,
+        }),
     }),
     {
       name: "pardes-chat",
-      partialize: (s) => ({ messages: s.messages }),
+      partialize: (s) => ({
+        conversationId: s.conversationId,
+        messages: s.messages,
+      }),
     },
   ),
 );

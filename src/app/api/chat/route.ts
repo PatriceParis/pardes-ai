@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { NextRequest } from "next/server";
+import { after, NextRequest } from "next/server";
 import { checkOnTopic } from "@/lib/guardrail";
+import { logConversation, type LogTurn } from "@/lib/log";
 import { SYSTEM_PROMPT, REFUSAL_MESSAGE_FR } from "@/lib/prompts";
 import { retrieve, formatSourcesBlock, type Source } from "@/lib/retrieval";
 
@@ -12,7 +13,10 @@ type ChatMessage = { role: "user" | "assistant"; content: string };
 const client = new Anthropic();
 
 export async function POST(req: NextRequest) {
-  const { messages } = (await req.json()) as { messages: ChatMessage[] };
+  const { conversationId, messages } = (await req.json()) as {
+    conversationId?: string;
+    messages: ChatMessage[];
+  };
 
   if (!messages?.length || messages[messages.length - 1].role !== "user") {
     return new Response("Invalid messages", { status: 400 });
@@ -22,6 +26,14 @@ export async function POST(req: NextRequest) {
 
   const guard = await checkOnTopic(lastUser);
   if (!guard.onTopic) {
+    if (conversationId) {
+      after(() =>
+        logConversation(conversationId, [
+          ...messagesToLog(messages),
+          { role: "assistant", content: REFUSAL_MESSAGE_FR },
+        ]),
+      );
+    }
     return streamRefusal(REFUSAL_MESSAGE_FR);
   }
 
@@ -59,6 +71,7 @@ export async function POST(req: NextRequest) {
   });
 
   const encoder = new TextEncoder();
+  let assistantText = "";
   const body = new ReadableStream({
     async start(controller) {
       if (sources.length) {
@@ -76,6 +89,7 @@ export async function POST(req: NextRequest) {
             event.type === "content_block_delta" &&
             event.delta.type === "text_delta"
           ) {
+            assistantText += event.delta.text;
             controller.enqueue(
               encoder.encode(
                 `event: token\ndata: ${JSON.stringify(event.delta.text)}\n\n`,
@@ -92,6 +106,25 @@ export async function POST(req: NextRequest) {
         );
       } finally {
         controller.close();
+        if (conversationId && assistantText) {
+          const finalAssistant = assistantText;
+          const finalSources = sources.map((s) => ({
+            corpus: s.corpus,
+            livre: s.livre,
+            chapitre: s.chapitre,
+            page: s.page,
+          }));
+          after(() =>
+            logConversation(conversationId, [
+              ...messagesToLog(messages),
+              {
+                role: "assistant",
+                content: finalAssistant,
+                sources: finalSources,
+              },
+            ]),
+          );
+        }
       }
     },
   });
@@ -103,6 +136,10 @@ export async function POST(req: NextRequest) {
       Connection: "keep-alive",
     },
   });
+}
+
+function messagesToLog(messages: ChatMessage[]): LogTurn[] {
+  return messages.map((m) => ({ role: m.role, content: m.content }));
 }
 
 function streamRefusal(text: string) {

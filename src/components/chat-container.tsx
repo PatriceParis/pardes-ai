@@ -10,7 +10,7 @@ import { Message } from "./message";
 import { useChatStore, type SourceMeta } from "@/lib/store";
 
 export function ChatContainer() {
-  const { messages, isStreaming, appendUser, startAssistant, appendToken, setSources, finishAssistant, reset } =
+  const { conversationId, messages, isStreaming, appendUser, startAssistant, appendToken, setSources, finishAssistant, reset } =
     useChatStore();
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -38,7 +38,7 @@ export function ChatContainer() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: history }),
+        body: JSON.stringify({ conversationId, messages: history }),
       });
       if (!res.ok || !res.body) {
         appendToken(assistantId, "_Erreur — réessaie._");
@@ -156,7 +156,7 @@ export function ChatContainer() {
             </Button>
           </div>
           <p className="mt-2 text-center text-[10px] text-muted-foreground">
-            Pardes n'est pas un rabbin — IA conçue par une personne non juive, fondée sur des sources juives. Pour toute décision personnelle (mariage, conversion, deuil, halakha), consulte un rabbin. Voir la{" "}
+            Pardes n'est pas un rabbin — IA conçue par une personne non juive, fondée sur des sources juives. Pour toute décision personnelle (mariage, conversion, deuil, halakha), consulte un rabbin. Conversations enregistrées de manière anonyme pour amélioration. Voir la{" "}
             <Link href="/charte" className="underline underline-offset-2 hover:text-foreground">
               Charte Éthique
             </Link>

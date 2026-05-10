@@ -89,7 +89,25 @@ export default function ChartePage() {
           </section>
 
           <section>
-            <h2>6. Évolution et révision</h2>
+            <h2>6. Conservation des conversations</h2>
+            <ul>
+              <li>
+                Les conversations sont <strong>enregistrées de manière anonyme</strong> sous forme de fichiers texte, à des fins d'amélioration du service (qualité des réponses, détection d'erreurs, ajustement du périmètre).
+              </li>
+              <li>
+                <strong>Aucune donnée personnelle</strong> n'est associée : pas d'adresse IP, pas d'identifiant utilisateur, pas de cookie de tracking. Seul un identifiant aléatoire (UUID) généré par ton navigateur est utilisé pour regrouper les messages d'une même conversation.
+              </li>
+              <li>
+                Les logs sont stockés sur Vercel Blob, accessibles uniquement par le concepteur du projet.
+              </li>
+              <li>
+                Tu peux demander la suppression d'une conversation en communiquant son identifiant (visible dans le stockage local de ton navigateur, clé <code>pardes-chat</code>).
+              </li>
+            </ul>
+          </section>
+
+          <section>
+            <h2>7. Évolution et révision</h2>
             <p>
               Cette charte est <strong>évolutive</strong> : elle pourra être ajustée à mesure que le projet mûrit, à la lumière des retours d'utilisateurs et, idéalement, de personnes juives (enseignants, rabbins, chercheurs).
             </p>
