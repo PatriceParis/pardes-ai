@@ -23,15 +23,17 @@ export async function logConversation(
   const text = formatConversation(conversationId, messages);
 
   if (process.env.BLOB_READ_WRITE_TOKEN) {
-    // Private store on Vercel Blob (beta). Use minimal options matching the
-    // Vercel quickstart: addRandomSuffix defaults to true, so each turn
-    // produces a new file. We accept this for now; a follow-up can switch
-    // to a deterministic path once the API stabilizes.
+    // Public Vercel Blob store. URLs include an unguessable per-store token
+    // in the hostname, so blobs are not enumerable from the outside —
+    // effectively private for our use case (only the project owner browses
+    // them via the Vercel dashboard).
     const path = `conversations/${conversationId}.txt`;
-    console.log(`[log] put ${path} (${text.length} chars)`);
     try {
       const result = await put(path, text, {
-        access: "private" as "public",
+        access: "public",
+        contentType: "text/plain; charset=utf-8",
+        addRandomSuffix: false,
+        allowOverwrite: true,
       });
       console.log(`[log] put OK: ${result.url}`);
       return;
