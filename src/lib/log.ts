@@ -23,24 +23,24 @@ export async function logConversation(
   const text = formatConversation(conversationId, messages);
 
   if (process.env.BLOB_READ_WRITE_TOKEN) {
+    // Private store on Vercel Blob (beta). Use minimal options matching the
+    // Vercel quickstart: addRandomSuffix defaults to true, so each turn
+    // produces a new file. We accept this for now; a follow-up can switch
+    // to a deterministic path once the API stabilizes.
     const path = `conversations/${conversationId}.txt`;
-    console.log(`[log] writing blob ${path} (${text.length} chars)`);
+    console.log(`[log] put ${path} (${text.length} chars)`);
     try {
       const result = await put(path, text, {
-        // Private store; "private" requires @vercel/blob >= 1.x.
         access: "private" as "public",
-        contentType: "text/plain; charset=utf-8",
-        addRandomSuffix: false,
-        allowOverwrite: true,
       });
-      console.log(`[log] blob OK: ${result.url}`);
+      console.log(`[log] put OK: ${result.url}`);
       return;
     } catch (e) {
-      console.error(`[log] blob write FAILED for ${path}:`, e);
-      // fall through to local fallback if available
+      const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+      console.error(`[log] put FAILED ${path} | ${msg}`);
     }
   } else {
-    console.warn("[log] BLOB_READ_WRITE_TOKEN missing — skipping prod log");
+    console.warn("[log] BLOB_READ_WRITE_TOKEN missing");
   }
 
   if (process.env.NODE_ENV !== "production") {
