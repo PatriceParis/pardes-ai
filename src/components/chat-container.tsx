@@ -9,9 +9,25 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Message } from "./message";
 import { useChatStore, type SourceMeta } from "@/lib/store";
 
+const SUGGESTIONS = [
+  "Que signifie tikoun olam ?",
+  "Pourquoi le Shabbat ?",
+  "Différence entre orthodoxe, massorti et libéral ?",
+  "Qu'est-ce que le Talmud ?",
+];
+
 export function ChatContainer() {
-  const { conversationId, messages, isStreaming, appendUser, startAssistant, appendToken, setSources, finishAssistant, reset } =
-    useChatStore();
+  const {
+    conversationId,
+    messages,
+    isStreaming,
+    appendUser,
+    startAssistant,
+    appendToken,
+    setSources,
+    finishAssistant,
+    reset,
+  } = useChatStore();
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -22,11 +38,11 @@ export function ChatContainer() {
     });
   }, [messages]);
 
-  async function send() {
-    const text = input.trim();
-    if (!text || isStreaming) return;
+  async function send(text?: string) {
+    const value = (text ?? input).trim();
+    if (!value || isStreaming) return;
     setInput("");
-    appendUser(text);
+    appendUser(value);
     const assistantId = startAssistant();
 
     const history = useChatStore
@@ -51,9 +67,9 @@ export function ChatContainer() {
       let buffer = "";
 
       while (true) {
-        const { done, value } = await reader.read();
+        const { done, value: chunk } = await reader.read();
         if (done) break;
-        buffer += decoder.decode(value, { stream: true });
+        buffer += decoder.decode(chunk, { stream: true });
 
         const events = buffer.split("\n\n");
         buffer = events.pop() ?? "";
@@ -70,15 +86,13 @@ export function ChatContainer() {
 
           if (event === "token") {
             try {
-              const tok = JSON.parse(data) as string;
-              appendToken(assistantId, tok);
+              appendToken(assistantId, JSON.parse(data) as string);
             } catch {
-              // ignore parse errors
+              // ignore
             }
           } else if (event === "sources") {
             try {
-              const srcs = JSON.parse(data) as SourceMeta[];
-              setSources(assistantId, srcs);
+              setSources(assistantId, JSON.parse(data) as SourceMeta[]);
             } catch {
               // ignore
             }
@@ -103,14 +117,16 @@ export function ChatContainer() {
 
   return (
     <div className="flex h-screen flex-col">
-      <header className="border-b border-border bg-card/40 px-6 py-4 backdrop-blur">
+      <header className="border-b border-border/60 px-6 py-4 backdrop-blur-xl bg-background/70 sticky top-0 z-10">
         <div className="mx-auto flex max-w-3xl items-center justify-between">
-          <div>
-            <h1 className="font-serif text-xl tracking-tight">Pardes</h1>
-            <p className="text-xs text-muted-foreground">
-              <span className="font-serif italic">פרדס</span> — Pshat · Remez · Drash · Sod
-            </p>
-          </div>
+          <Link href="/" className="group flex items-baseline gap-2">
+            <span className="font-serif text-xl font-semibold tracking-tight text-foreground">
+              Pardes
+            </span>
+            <span className="font-serif text-xs italic text-muted-foreground transition-colors group-hover:text-foreground">
+              פרדס
+            </span>
+          </Link>
           {messages.length > 0 && (
             <Button variant="ghost" size="sm" onClick={reset}>
               <RotateCcw />
@@ -121,11 +137,11 @@ export function ChatContainer() {
       </header>
 
       <ScrollArea className="flex-1">
-        <div ref={scrollRef} className="mx-auto h-full max-w-3xl px-6 py-8">
+        <div ref={scrollRef} className="mx-auto h-full max-w-3xl px-6 py-10">
           {messages.length === 0 ? (
-            <Welcome />
+            <Welcome onPick={(q) => void send(q)} />
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-5">
               {messages.map((m) => (
                 <Message key={m.id} message={m} />
               ))}
@@ -134,30 +150,34 @@ export function ChatContainer() {
         </div>
       </ScrollArea>
 
-      <footer className="border-t border-border bg-card/40 backdrop-blur">
+      <footer className="border-t border-border/60 backdrop-blur-xl bg-background/70">
         <div className="mx-auto max-w-3xl px-6 py-4">
           <div className="flex items-end gap-2">
             <Textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={onKey}
-              placeholder="Pose ta question — Tanakh, Talmud, halakha, tradition, vie…"
-              rows={2}
+              placeholder="Pose ta question…"
+              rows={1}
               disabled={isStreaming}
-              className="flex-1"
+              className="flex-1 min-h-[52px] py-3.5 text-[15px] resize-none"
             />
             <Button
-              onClick={send}
+              onClick={() => void send()}
               disabled={!input.trim() || isStreaming}
               size="icon"
-              className="h-[60px] w-12"
+              className="h-[52px] w-12"
+              aria-label="Envoyer"
             >
               <Send />
             </Button>
           </div>
-          <p className="mt-2 text-center text-[10px] text-muted-foreground">
-            Pardes n'est pas un rabbin — IA conçue par une personne non juive, fondée sur des sources juives. Pour toute décision personnelle (mariage, conversion, deuil, halakha), consulte un rabbin. Conversations enregistrées de manière anonyme pour amélioration. Voir la{" "}
-            <Link href="/charte" className="underline underline-offset-2 hover:text-foreground">
+          <p className="mt-2.5 text-center text-[10px] leading-relaxed text-muted-foreground">
+            Pardes est une IA, pas un rabbin — conçue par une personne non juive, fondée sur des sources juives. Pour toute décision personnelle (mariage, conversion, deuil, halakha), consulte un rabbin. Conversations enregistrées de manière anonyme. Voir la{" "}
+            <Link
+              href="/charte"
+              className="underline underline-offset-2 hover:text-foreground"
+            >
               Charte Éthique
             </Link>
             .
@@ -168,15 +188,33 @@ export function ChatContainer() {
   );
 }
 
-function Welcome() {
+function Welcome({ onPick }: { onPick: (q: string) => void }) {
   return (
-    <div className="flex h-full flex-col items-center justify-center text-center">
-      <h2 className="font-serif text-3xl">Shalom.</h2>
-      <p className="mt-4 max-w-md text-sm text-muted-foreground">
-        Compagnon d'étude — Tanakh, Talmud, Halakha, Mahshava, Kabbale.
-        <br />
-        Pose ta question, simple ou complexe, dans la langue de ton choix.
+    <div className="flex h-full min-h-[60vh] flex-col items-center justify-center text-center">
+      <div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-card/40 px-3 py-1 text-xs text-muted-foreground">
+        <span className="font-serif italic text-primary">פרדס</span>
+        <span className="text-border">·</span>
+        <span>Compagnon d'étude juive</span>
+      </div>
+      <h1 className="mt-6 font-serif text-5xl font-medium tracking-tight">
+        Shalom.
+      </h1>
+      <p className="mt-4 max-w-md text-[15px] leading-relaxed text-muted-foreground">
+        Pose une question sur le judaïsme. Tanakh, Talmud, fêtes, pratiques,
+        histoire — dans la langue de ton choix.
       </p>
+      <div className="mt-10 flex max-w-xl flex-wrap justify-center gap-2">
+        {SUGGESTIONS.map((s) => (
+          <button
+            key={s}
+            type="button"
+            onClick={() => onPick(s)}
+            className="rounded-full border border-border/60 bg-card/40 px-3.5 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:bg-accent hover:text-foreground"
+          >
+            {s}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
