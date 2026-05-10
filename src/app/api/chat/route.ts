@@ -18,6 +18,10 @@ export async function POST(req: NextRequest) {
     messages: ChatMessage[];
   };
 
+  console.log(
+    `[chat] received conversationId=${JSON.stringify(conversationId)} messages=${messages?.length ?? 0}`,
+  );
+
   if (!messages?.length || messages[messages.length - 1].role !== "user") {
     return new Response("Invalid messages", { status: 400 });
   }
@@ -106,6 +110,9 @@ export async function POST(req: NextRequest) {
         );
       } finally {
         controller.close();
+        console.log(
+          `[chat] finally: conversationId=${JSON.stringify(conversationId)} assistantText=${assistantText.length}chars`,
+        );
         if (conversationId && assistantText) {
           // Run inline (not via after()) so we get a deterministic execution
           // and visible logs. This adds ~200-800 ms to the function lifetime
