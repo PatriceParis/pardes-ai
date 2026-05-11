@@ -27,8 +27,15 @@ export async function POST(req: NextRequest) {
   }
 
   const lastUser = messages[messages.length - 1].content;
+  // Pass the previous assistant turn so the guardrail can judge short
+  // follow-ups ("oui", "pour enfants", "celui de Breslev"…) in context
+  // rather than refusing them as off-topic in isolation.
+  const previousAssistant = [...messages]
+    .slice(0, -1)
+    .reverse()
+    .find((m) => m.role === "assistant")?.content;
 
-  const guard = await checkOnTopic(lastUser);
+  const guard = await checkOnTopic(lastUser, previousAssistant);
   if (!guard.onTopic) {
     if (conversationId) {
       // Await directly: streamRefusal will be called after this returns,
