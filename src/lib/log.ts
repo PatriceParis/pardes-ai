@@ -67,21 +67,8 @@ export function formatConversation(id: string, messages: LogTurn[]): string {
     lines.push(`### ${m.role === "user" ? "USER" : "ASSISTANT"}`);
     lines.push("");
     lines.push(m.content.trim());
-    if (m.sources?.length) {
-      lines.push("");
-      lines.push("Sources:");
-      for (const s of m.sources) {
-        const ref = [
-          s.corpus,
-          s.livre,
-          s.chapitre ?? null,
-          s.page ? `p.${s.page}` : null,
-        ]
-          .filter(Boolean)
-          .join(" — ");
-        lines.push(`  - ${ref}`);
-      }
-    }
+    // Source metadata is intentionally NOT dumped here.
+    // Keeps the conversation log focused on what the user actually saw.
     lines.push("");
     lines.push("---");
     lines.push("");

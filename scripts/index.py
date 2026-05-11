@@ -86,6 +86,36 @@ EXTRA_DOCS: list[tuple[Path, str, str]] = [
         "Commentaire",
         "À l'écoute de la Thora",
     ),
+    (
+        Path(r"C:\Users\patri\Shalom\KB\35391184.pdf"),
+        "Commentaire",
+        "Au Puits de la Paracha — Houkat",
+    ),
+    (
+        Path(r"C:\Users\patri\Shalom\KB\contes_des_temps_anciens.pdf"),
+        "Hassidout",
+        "Contes des Temps Anciens — Rabbi Nahman de Breslev",
+    ),
+    (
+        Path(r"C:\Users\patri\Shalom\KB\LaTerre_Israel_FIXED.pdf"),
+        "Recherche",
+        "La Terre d'Israël — Yehuda Moraly (Pardès n°46, 2009)",
+    ),
+    (
+        Path(r"C:\Users\patri\Shalom\KB\shevanetivotfr.pdf"),
+        "Kabbale",
+        "Sheva Netivot HaTorah — Abraham Aboulafia",
+    ),
+    (
+        Path(r"C:\Users\patri\Shalom\KB\PENSEE-JUIVE-Tome-1-fini.pdf"),
+        "Pensée juive",
+        "Manuel de Pensée Juive Tome 1 — Mikhaël Benadmon (ASKOLA)",
+    ),
+    (
+        Path(r"C:\Users\patri\Shalom\KB\maitriser-la-colere.pdf"),
+        "Moussar",
+        "Comment maîtriser la colère",
+    ),
     # YouTube transcripts referenced in Deep Research Gemini PDF
     (
         Path(r"C:\Users\patri\Shalom\KB\transcripts\17_5y-82nFxlM0.txt"),
