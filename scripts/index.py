@@ -144,6 +144,54 @@ EXTRA_DOCS: list[tuple[Path, str, str]] = [
     ),
 ]
 
+# Auto-discovered transcripts: any *.txt under KB/transcripts/<subdir>/
+# Each file's header lines (Titre: …, Catégories: …) drive the metadata.
+TRANSCRIPTS_DIRS: list[tuple[Path, str]] = [
+    # (directory, default corpus label when categories tag absent)
+    (Path(r"C:\Users\patri\Shalom\KB\transcripts\breslev"), "Cours Rav Ifrah"),
+]
+
+
+def _parse_transcript_header(path: Path) -> tuple[str | None, str | None]:
+    """Read the first ~30 lines of a transcript .txt and return (title, categories)."""
+    try:
+        with path.open(encoding="utf-8", errors="replace") as f:
+            head = [next(f, "") for _ in range(30)]
+    except Exception:
+        return None, None
+    title = None
+    cats = None
+    for line in head:
+        line = line.rstrip()
+        if line.startswith("Titre: "):
+            title = line[len("Titre: "):].strip()
+        elif line.startswith("Catégories: "):
+            cats = line[len("Catégories: "):].strip()
+        if title and cats:
+            break
+    return title, cats
+
+
+def discover_transcript_extras() -> list[tuple[Path, str, str]]:
+    """Walk the configured transcripts dirs and build (path, corpus, livre) tuples."""
+    out: list[tuple[Path, str, str]] = []
+    for root, default_corpus in TRANSCRIPTS_DIRS:
+        if not root.exists():
+            continue
+        for p in sorted(root.glob("*.txt")):
+            title, cats = _parse_transcript_header(p)
+            corpus = default_corpus
+            if cats:
+                # Map first matching category slug to a friendlier corpus
+                lower = cats.lower()
+                if "cours-rav-ifrah" in lower:
+                    corpus = "Cours Rav Ifrah"
+                elif "cours-du-jour" in lower:
+                    corpus = "Cours du jour"
+            livre = title or p.stem
+            out.append((p, corpus, livre))
+    return out
+
 
 @dataclass
 class Chunk:
@@ -236,9 +284,14 @@ def _split_flat(text: str, target_chars: int, overlap_chars: int) -> list[str]:
     return [c for c in out if c]
 
 
+def _all_extras() -> list[tuple[Path, str, str]]:
+    """Union of explicit EXTRA_DOCS + auto-discovered transcripts."""
+    return EXTRA_DOCS + discover_transcript_extras()
+
+
 def parse_path(pdf: Path) -> tuple[str, str, str | None]:
     """Return (corpus, livre, chapitre) for a PDF under CORPUS_ROOT or in EXTRA_DOCS."""
-    for extra_path, extra_corpus, extra_livre in EXTRA_DOCS:
+    for extra_path, extra_corpus, extra_livre in _all_extras():
         if pdf.resolve() == extra_path.resolve():
             return extra_corpus, extra_livre, None
     rel = pdf.relative_to(CORPUS_ROOT)
@@ -257,7 +310,7 @@ def parse_path(pdf: Path) -> tuple[str, str, str | None]:
 
 def iter_pdfs(root: Path) -> Iterator[Path]:
     yield from sorted(root.rglob("*.pdf"))
-    for extra_path, _, _ in EXTRA_DOCS:
+    for extra_path, _, _ in _all_extras():
         if extra_path.exists():
             yield extra_path
         else:
@@ -265,7 +318,7 @@ def iter_pdfs(root: Path) -> Iterator[Path]:
 
 
 def rel_for(pdf: Path) -> str:
-    for extra_path, _, _ in EXTRA_DOCS:
+    for extra_path, _, _ in _all_extras():
         if pdf.resolve() == extra_path.resolve():
             return f"extras/{pdf.name}".replace("\\", "/")
     return str(pdf.relative_to(CORPUS_ROOT)).replace("\\", "/")

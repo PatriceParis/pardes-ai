@@ -116,8 +116,8 @@ export function ChatContainer() {
   }
 
   return (
-    <div className="flex h-screen flex-col">
-      <header className="border-b border-border/60 px-6 py-4 backdrop-blur-xl bg-background/70 sticky top-0 z-10">
+    <div className="flex h-dvh flex-col overflow-hidden">
+      <header className="shrink-0 border-b border-border/60 px-4 py-3 sm:px-6 sm:py-4 backdrop-blur-xl bg-background/80 sticky top-0 z-10">
         <div className="mx-auto flex max-w-3xl items-center justify-between">
           <Link href="/" className="group flex items-baseline gap-2">
             <span className="font-serif text-xl font-semibold tracking-tight text-foreground">
@@ -136,8 +136,11 @@ export function ChatContainer() {
         </div>
       </header>
 
-      <ScrollArea className="flex-1">
-        <div ref={scrollRef} className="mx-auto h-full max-w-3xl px-6 py-10">
+      <ScrollArea className="min-h-0 flex-1">
+        <div
+          ref={scrollRef}
+          className="mx-auto h-full max-w-3xl px-4 py-6 sm:px-6 sm:py-10"
+        >
           {messages.length === 0 ? (
             <Welcome onPick={(q) => void send(q)} />
           ) : (
@@ -150,8 +153,8 @@ export function ChatContainer() {
         </div>
       </ScrollArea>
 
-      <footer className="border-t border-border/60 backdrop-blur-xl bg-background/70">
-        <div className="mx-auto max-w-3xl px-6 py-4">
+      <footer className="shrink-0 border-t border-border/60 backdrop-blur-xl bg-background/80">
+        <div className="mx-auto max-w-3xl px-4 py-3 sm:px-6 sm:py-4">
           <div className="flex items-end gap-2">
             <Textarea
               value={input}
@@ -166,13 +169,13 @@ export function ChatContainer() {
               onClick={() => void send()}
               disabled={!input.trim() || isStreaming}
               size="icon"
-              className="h-[52px] w-12"
+              className="h-[52px] w-12 shrink-0"
               aria-label="Envoyer"
             >
               <Send />
             </Button>
           </div>
-          <p className="mt-2.5 text-center text-[10px] leading-relaxed text-muted-foreground">
+          <p className="mt-2.5 text-balance px-1 text-center text-[11px] leading-snug text-muted-foreground">
             Pardes est une IA, pas un rabbin — conçue par une personne non juive, fondée sur des sources juives. Pour toute décision personnelle (mariage, conversion, deuil, halakha), consulte un rabbin. Conversations enregistrées de manière anonyme. Voir la{" "}
             <Link
               href="/charte"
@@ -190,26 +193,26 @@ export function ChatContainer() {
 
 function Welcome({ onPick }: { onPick: (q: string) => void }) {
   return (
-    <div className="flex h-full min-h-[60vh] flex-col items-center justify-center text-center">
-      <div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-card/40 px-3 py-1 text-xs text-muted-foreground">
+    <div className="flex flex-col items-center justify-center py-6 text-center sm:min-h-[55vh] sm:py-0">
+      <div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-card/40 px-3 py-1 text-[11px] text-muted-foreground sm:text-xs">
         <span className="font-serif italic text-primary">פרדס</span>
         <span className="text-border">·</span>
         <span>Compagnon d'étude juive</span>
       </div>
-      <h1 className="mt-6 font-serif text-5xl font-medium tracking-tight">
+      <h1 className="mt-5 font-serif text-4xl font-medium tracking-tight sm:mt-6 sm:text-5xl">
         Shalom.
       </h1>
-      <p className="mt-4 max-w-md text-[15px] leading-relaxed text-muted-foreground">
+      <p className="mt-3 max-w-md text-[14px] leading-relaxed text-muted-foreground sm:mt-4 sm:text-[15px]">
         Pose une question sur le judaïsme. Tanakh, Talmud, fêtes, pratiques,
         histoire — dans la langue de ton choix.
       </p>
-      <div className="mt-10 flex max-w-xl flex-wrap justify-center gap-2">
+      <div className="mt-8 flex max-w-xl flex-wrap justify-center gap-2 sm:mt-10">
         {SUGGESTIONS.map((s) => (
           <button
             key={s}
             type="button"
             onClick={() => onPick(s)}
-            className="rounded-full border border-border/60 bg-card/40 px-3.5 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:bg-accent hover:text-foreground"
+            className="rounded-full border border-border/60 bg-card/40 px-3 py-1.5 text-[11px] text-muted-foreground transition-colors hover:border-primary/40 hover:bg-accent hover:text-foreground sm:px-3.5 sm:text-xs"
           >
             {s}
           </button>
