@@ -1,5 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
+import { anthropic } from "@/lib/anthropic";
+import { messageErreurFr } from "@/lib/errors";
 import { checkOnTopic } from "@/lib/guardrail";
 import { logConversation, type LogTurn } from "@/lib/log";
 import { SYSTEM_PROMPT, REFUSAL_MESSAGE_FR } from "@/lib/prompts";
@@ -9,8 +11,6 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
-
-const client = new Anthropic();
 
 export async function POST(req: NextRequest) {
   const { conversationId, messages } = (await req.json()) as {
@@ -35,7 +35,18 @@ export async function POST(req: NextRequest) {
     .reverse()
     .find((m) => m.role === "assistant")?.content;
 
-  const guard = await checkOnTopic(lastUser, previousAssistant);
+  // Le garde-fou ne doit jamais faire tomber la requête : s'il échoue, on
+  // laisse passer (même défaut permissif que checkOnTopic quand le JSON est
+  // illisible). Une panne globale — crédit épuisé, clé invalide — sera de
+  // toute façon rattrapée plus bas et affichée en clair à l'utilisateur.
+  let guard: Awaited<ReturnType<typeof checkOnTopic>>;
+  try {
+    guard = await checkOnTopic(lastUser, previousAssistant);
+  } catch (e) {
+    console.error("[chat] guardrail failed, laissé passer:", e);
+    guard = { onTopic: true };
+  }
+
   if (!guard.onTopic) {
     if (conversationId) {
       // Await directly: streamRefusal will be called after this returns,
@@ -68,18 +79,26 @@ export async function POST(req: NextRequest) {
 
   const model = process.env.ANTHROPIC_MAIN_MODEL ?? "claude-sonnet-4-6";
 
-  const stream = await client.messages.stream({
-    model,
-    max_tokens: 2048,
-    system: [
-      {
-        type: "text",
-        text: SYSTEM_PROMPT,
-        cache_control: { type: "ephemeral" },
-      },
-    ],
-    messages: augmentedMessages,
-  });
+  let stream: ReturnType<Anthropic["messages"]["stream"]>;
+  try {
+    stream = anthropic().messages.stream({
+      model,
+      max_tokens: 2048,
+      system: [
+        {
+          type: "text",
+          text: SYSTEM_PROMPT,
+          cache_control: { type: "ephemeral" },
+        },
+      ],
+      messages: augmentedMessages,
+    });
+  } catch (e) {
+    // Clé absente, modèle invalide… : rien n'a encore été envoyé au client,
+    // on répond en flux avec une phrase lisible plutôt qu'un 500 muet.
+    console.error("[chat] ouverture du flux impossible:", e);
+    return streamMessage(messageErreurFr(e));
+  }
 
   const encoder = new TextEncoder();
   let assistantText = "";
@@ -110,9 +129,13 @@ export async function POST(req: NextRequest) {
         }
         controller.enqueue(encoder.encode("event: done\ndata: {}\n\n"));
       } catch (e) {
+        // Le flux a déjà commencé (statut 200 envoyé) : le seul moyen de
+        // prévenir l'utilisateur est un évènement `error` porteur d'un
+        // message en clair, que le client affiche tel quel.
+        console.error("[chat] flux interrompu:", e);
         controller.enqueue(
           encoder.encode(
-            `event: error\ndata: ${JSON.stringify(String(e))}\n\n`,
+            `event: error\ndata: ${JSON.stringify(messageErreurFr(e))}\n\n`,
           ),
         );
       } finally {
@@ -159,7 +182,8 @@ function messagesToLog(messages: ChatMessage[]): LogTurn[] {
   return messages.map((m) => ({ role: m.role, content: m.content }));
 }
 
-function streamRefusal(text: string) {
+/** Envoie un texte unique comme s'il avait été streamé, puis clôt le flux. */
+function streamMessage(text: string) {
   const encoder = new TextEncoder();
   const body = new ReadableStream({
     start(controller) {
@@ -177,4 +201,8 @@ function streamRefusal(text: string) {
       "Cache-Control": "no-cache, no-transform",
     },
   });
+}
+
+function streamRefusal(text: string) {
+  return streamMessage(text);
 }
