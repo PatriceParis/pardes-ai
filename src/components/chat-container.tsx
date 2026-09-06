@@ -9,6 +9,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Message } from "./message";
 import { useChatStore, type SourceMeta } from "@/lib/store";
 
+// Repli quand le serveur n'a pas pu joindre de message lisible (crash avant
+// l'ouverture du flux). Les cas connus — crédit épuisé, clé invalide,
+// surcharge — arrivent déjà rédigés depuis /api/chat.
+const ERREUR_GENERIQUE = "Pardes n'a pas pu répondre. Réessaie dans un instant.";
+
 const SUGGESTIONS = [
   "Que signifie tikoun olam ?",
   "Pourquoi le Shabbat ?",
@@ -57,7 +62,7 @@ export function ChatContainer() {
         body: JSON.stringify({ conversationId, messages: history }),
       });
       if (!res.ok || !res.body) {
-        appendToken(assistantId, "_Erreur — réessaie._");
+        appendToken(assistantId, `_${ERREUR_GENERIQUE}_`);
         finishAssistant(assistantId);
         return;
       }
@@ -96,6 +101,22 @@ export function ChatContainer() {
             } catch {
               // ignore
             }
+          } else if (event === "error") {
+            let texte = ERREUR_GENERIQUE;
+            try {
+              texte = JSON.parse(data) as string;
+            } catch {
+              // on garde le repli
+            }
+            // Une réponse partielle a pu être affichée avant la coupure :
+            // on ajoute l'explication à la suite plutôt que de l'écraser.
+            const prefixe = useChatStore
+              .getState()
+              .messages.find((m) => m.id === assistantId)?.content
+              ? "\n\n"
+              : "";
+            appendToken(assistantId, `${prefixe}_${texte}_`);
+            finishAssistant(assistantId);
           } else if (event === "done") {
             finishAssistant(assistantId);
           }
@@ -103,7 +124,11 @@ export function ChatContainer() {
       }
       finishAssistant(assistantId);
     } catch (e) {
-      appendToken(assistantId, `_Erreur réseau : ${String(e)}_`);
+      console.error("[chat] appel /api/chat échoué:", e);
+      appendToken(
+        assistantId,
+        "_Connexion interrompue. Vérifie ta connexion et réessaie._",
+      );
       finishAssistant(assistantId);
     }
   }

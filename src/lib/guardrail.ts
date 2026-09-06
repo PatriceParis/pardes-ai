@@ -1,7 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { anthropic } from "./anthropic";
 import { GUARDRAIL_PROMPT } from "./prompts";
-
-const client = new Anthropic();
 
 export type GuardrailResult = { onTopic: boolean; reason?: string };
 
@@ -23,7 +22,7 @@ export async function checkOnTopic(
     ? `[contexte — message assistant précédent, tronqué]\n${previousAssistant.slice(0, 600)}\n\n[message utilisateur à classer]\n${message}`
     : message;
 
-  const res = await client.messages.create({
+  const res = await anthropic().messages.create({
     model,
     max_tokens: 80,
     system: [
